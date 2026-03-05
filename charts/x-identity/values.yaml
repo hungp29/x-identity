@@ -1,0 +1,53 @@
+replicaCount: 1
+
+image:
+  repository: x-identity
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 443
+  targetPort: 50051
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+livenessProbe:
+  grpc:
+    port: 50051
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  grpc:
+    port: 50051
+  initialDelaySeconds: 3
+  periodSeconds: 5
+
+# Non-sensitive configuration passed as plain env vars.
+env:
+  GRPC_PORT: "50051"
+  DB_HOST: "postgres"
+  DB_PORT: "5432"
+  DB_NAME: "xidentity"
+  DB_SSLMODE: "disable"
+  DB_SCHEMA: "xdata"
+  ACCESS_TOKEN_TTL: "15m"
+  REFRESH_TOKEN_TTL: "168h"
+  MAX_FAILED_LOGINS: "5"
+
+# Sensitive credentials are read from a Kubernetes Secret.
+# Set secret.create=true to let the chart create the Secret from these values,
+# or set secret.create=false and provide your own Secret named by secret.name.
+secret:
+  create: true
+  name: ""        # defaults to <fullname>-credentials when empty
+  dbUser: ""      # DB_USER  — required
+  dbPassword: ""  # DB_PASSWORD — required
+  jwtSecret: ""   # JWT_SECRET — required

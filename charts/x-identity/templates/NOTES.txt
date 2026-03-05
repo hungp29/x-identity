@@ -1,0 +1,6 @@
+x-identity has been deployed (gRPC).
+
+For local access, port-forward the gRPC service:
+  kubectl port-forward svc/{{ include "x-identity.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+
+Then use a gRPC client (e.g. grpcurl) against localhost:{{ .Values.service.port }}

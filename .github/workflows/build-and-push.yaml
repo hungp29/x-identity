@@ -1,0 +1,97 @@
+name: Build and Push Image and Chart
+
+on:
+  push:
+    tags: ['*']
+  workflow_dispatch:
+    # When triggered by Cut Release workflow, ref is set to the new tag
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/x-identity
+  CHART_PATH: charts/x-identity
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set tag
+        id: tag
+        run: |
+          # Use ref as tag (from release: DATE_TIME-SHA_SHORT-run_number, or tag push)
+          echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Update values.yaml with image tag
+        run: |
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          sed -i "s|^  repository: .*|  repository: ${IMAGE_REF}|" ${{ env.CHART_PATH }}/values.yaml
+          sed -i "s|^  tag: .*|  tag: ${{ steps.tag.outputs.tag }}|" ${{ env.CHART_PATH }}/values.yaml
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.16.0'
+
+      - name: Login to GHCR (Helm)
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+
+      - name: Package and push chart
+        run: |
+          helm package ${{ env.CHART_PATH }} --version "${{ steps.tag.outputs.tag }}"
+          helm push x-identity-${{ steps.tag.outputs.tag }}.tgz oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts
+
+      - name: Open PR in x-deployk8s to update chart version
+        env:
+          DEPLOYK8S_REPO_TOKEN: ${{ secrets.DEPLOYK8S_REPO_TOKEN }}
+        run: |
+          if [ -z "$DEPLOYK8S_REPO_TOKEN" ]; then
+            echo "Skipping x-deployk8s PR: DEPLOYK8S_REPO_TOKEN not set"
+            exit 0
+          fi
+          TAG="${{ steps.tag.outputs.tag }}"
+          REPO="${{ github.repository_owner }}/x-deployk8s"
+          BRANCH="chore/update-x-identity-chart-${TAG}"
+          git clone --depth 1 "https://x-access-token:${DEPLOYK8S_REPO_TOKEN}@github.com/${REPO}.git" deployk8s
+          cd deployk8s
+          sed -i "s/targetRevision: \".*\"/targetRevision: \"${TAG}\"/" applications/x-identity.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add applications/x-identity.yaml
+          git diff --staged --quiet && { echo "No change in targetRevision"; exit 0; }
+          git commit -m "chore(x-identity): set ArgoCD targetRevision to ${TAG}"
+          git push -u origin "$BRANCH"
+          GH_TOKEN="$DEPLOYK8S_REPO_TOKEN" gh pr create \
+            --repo "$REPO" \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore(x-identity): update ArgoCD chart version to ${TAG}" \
+            --body "Auto-generated PR to bump x-identity chart \`targetRevision\` for ArgoCD to \`${TAG}\`."

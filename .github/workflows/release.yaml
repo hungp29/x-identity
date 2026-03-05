@@ -1,0 +1,42 @@
+name: Cut Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Ref to release (branch or SHA)'
+        required: false
+        default: 'main'
+
+jobs:
+  cut-release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      actions: write   # required to trigger workflow_dispatch on build-and-push.yaml
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || 'main' }}
+          fetch-depth: 0
+
+      - name: Create and push release tag
+        id: create-tag
+        run: |
+          DATE_TIME=$(date -u +%Y%m%d-%H%M%S)
+          SHA_SHORT="${GITHUB_SHA:0:7}"
+          TAG="${DATE_TIME}-${SHA_SHORT}-${{ github.run_number }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger Build and Push workflow
+        run: |
+          gh workflow run build-and-push.yaml --ref "${{ steps.create-tag.outputs.tag }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
