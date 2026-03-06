@@ -11,5 +11,8 @@ on:
 
 jobs:
   production-deployment:
+    permissions:
+      contents: read
+      packages: write
     uses: hungp29/x-actions/.github/workflows/go-production.yaml@v1.0.0
     secrets: inherit
