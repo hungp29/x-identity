@@ -1,0 +1,3 @@
+apps:
+  name: x-identity
+  desciption: x-identity gRPC service (authentication & authorization)
