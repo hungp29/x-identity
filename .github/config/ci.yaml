@@ -6,6 +6,4 @@ apps:
         jobs:
           build-and-unit-test:
             go-version: '1.25.0'
-          test:
-            a: 'v'
             
