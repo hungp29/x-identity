@@ -8,6 +8,7 @@ apps:
             go-version: '1.25.0'
           containerize-and-package:
             dockerfile-path: 'Dockerfile'
-            image-name: x-identity
+            registry: ghcr.io
+            image-name: hungp29/x-identity
             chart-path: charts/x-identity
             

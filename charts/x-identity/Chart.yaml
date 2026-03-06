@@ -3,7 +3,6 @@ name: x-identity
 description: x-identity gRPC service (authentication & authorization)
 type: application
 version: 0.1.0
-appVersion: "0.1.0"
 keywords:
   - x-identity
   - grpc
