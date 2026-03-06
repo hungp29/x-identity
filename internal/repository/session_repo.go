@@ -26,8 +26,8 @@ func NewSessionRepo(pool *pgxpool.Pool) *SessionRepo {
 func (r *SessionRepo) Create(ctx context.Context, userID, tokenHash, ipAddress, userAgent string, expiresAt time.Time) (*model.Session, error) {
 	const q = `
 		INSERT INTO sessions (user_id, token_hash, expires_at, ip_address, user_agent)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, user_id, token_hash, expires_at, revoked_at, ip_address, user_agent, created_at`
+		VALUES ($1, $2, $3, $4::inet, $5)
+		RETURNING id, user_id, token_hash, expires_at, revoked_at, ip_address::text, user_agent, created_at`
 
 	row := r.pool.QueryRow(ctx, q, userID, tokenHash, expiresAt, ipAddress, userAgent)
 	s, err := scanSession(row)
@@ -41,7 +41,7 @@ func (r *SessionRepo) Create(ctx context.Context, userID, tokenHash, ipAddress, 
 // Returns ErrNotFound if no matching session exists.
 func (r *SessionRepo) FindByTokenHash(ctx context.Context, tokenHash string) (*model.Session, error) {
 	const q = `
-		SELECT id, user_id, token_hash, expires_at, revoked_at, ip_address, user_agent, created_at
+		SELECT id, user_id, token_hash, expires_at, revoked_at, ip_address::text, user_agent, created_at
 		FROM   sessions
 		WHERE  token_hash = $1`
 

@@ -31,7 +31,7 @@ func Load() (*Config, error) {
 	cfg := &Config{}
 
 	var err error
-	cfg.GRPCPort, err = envInt("GRPC_PORT", 50051)
+	cfg.GRPCPort, err = envInt("GRPC_PORT", 8080)
 	if err != nil {
 		return nil, err
 	}

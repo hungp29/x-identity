@@ -12,6 +12,6 @@ FROM scratch
 
 COPY --from=builder /bin/xidentity /xidentity
 
-EXPOSE 50051
+EXPOSE 8080
 
 ENTRYPOINT ["/xidentity"]
