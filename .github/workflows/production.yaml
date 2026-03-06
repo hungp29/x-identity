@@ -1,0 +1,14 @@
+name: 'Production'
+
+on:
+  # release:
+  #   types:
+  #     - released
+  push:
+    branches:
+      - main
+
+jobs:
+  production-deployment:
+    uses: hungp29/x-actions/.github/workflows/go-production.yaml@v1.0.0
+    secrets: inherit
